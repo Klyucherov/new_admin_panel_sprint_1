@@ -1,20 +1,43 @@
+import os
 import sqlite3
 
 import psycopg2
 from psycopg2.extensions import connection as _connection
-from psycopg2.extras import DictCursor
+
+from connect_data import DSL
+from data_class import (
+    Filmwork,
+    Genre,
+    Person,
+    GenreFilmwork,
+    PersonFilmwork,
+)
+from db_class import PostgresSaver, SQLiteExtractor
 
 
-def load_from_sqlite(connection: sqlite3.Connection, pg_conn: _connection):
+def load_from_sqlite(connection: sqlite3.Connection, pg_conn: _connection) -> None:
     """Основной метод загрузки данных из SQLite в Postgres"""
-    # postgres_saver = PostgresSaver(pg_conn)
-    # sqlite_extractor = SQLiteExtractor(connection)
+    postgres_saver = PostgresSaver(pg_conn)
+    sqlite_extractor = SQLiteExtractor(connection)
 
-    # data = sqlite_extractor.extract_movies()
-    # postgres_saver.save_all_data(data)
+    table_dataclass = [
+        Filmwork,
+        Genre,
+        Person,
+        GenreFilmwork,
+        PersonFilmwork,
+    ]
+
+    for table in table_dataclass:
+
+        for data in sqlite_extractor.extract_yield(table):
+            postgres_saver.save_all_data(table, data)
 
 
 if __name__ == '__main__':
-    dsl = {'dbname': 'movies_database', 'user': 'app', 'password': '123qwe', 'host': '127.0.0.1', 'port': 5432}
-    with sqlite3.connect('db.sqlite') as sqlite_conn, psycopg2.connect(**dsl, cursor_factory=DictCursor) as pg_conn:
+    filename = os.path.abspath(__file__)
+    dbdir = os.path.dirname(filename)
+    dbpath = os.path.join(dbdir, "db.sqlite")
+
+    with sqlite3.connect(dbpath) as sqlite_conn, psycopg2.connect(**DSL) as pg_conn:
         load_from_sqlite(sqlite_conn, pg_conn)
